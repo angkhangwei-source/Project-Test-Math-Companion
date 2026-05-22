@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Home, Map as MapIcon, Trophy, Dumbbell, Users, BarChart2, Flame, RefreshCw, X, Camera, Database, AlertTriangle, Check } from "lucide-react";
+import { Home, Map as MapIcon, Trophy, Dumbbell, Users, BarChart2, Flame, RefreshCw, X, Camera, Database, AlertTriangle, Check, MessageSquare } from "lucide-react";
 import { UserData, Quest, RecentQuest, MissionLogItem, Challenge } from "./types";
 import Header from "./components/Header";
 import HomeView from "./components/HomeView";
 import MapView from "./components/MapView";
 import ArenaView from "./components/ArenaView";
-import HubView from "./components/HubView";
+import SocialView from "./components/SocialView";
 import RankView from "./components/RankView";
 import CameraView from "./components/CameraView";
 import SolverView from "./components/SolverView";
@@ -13,8 +13,8 @@ import QuestRevisionView from "./components/QuestRevisionView";
 import { supabase, mapEntryToMission, insertMissionToSupabase } from "./lib/supabase";
 
 export default function App() {
-  // Navigation active tab: "home" | "map" | "arena" | "hub" | "rank"
-  const [activeTab, setActiveTab] = useState<"home" | "map" | "arena" | "hub" | "rank">("home");
+  // Navigation active tab: "home" | "map" | "arena" | "social" | "rank"
+  const [activeTab, setActiveTab] = useState<"home" | "map" | "arena" | "social" | "rank">("home");
 
   // Camera scanner overlay state
   const [showCamera, setShowCamera] = useState(false);
@@ -510,7 +510,7 @@ alter publication supabase_realtime add table entries;`;
           />
         )}
 
-        {activeTab === "hub" && <HubView />}
+        {activeTab === "social" && <SocialView />}
 
         {activeTab === "rank" && <RankView />}
       </main>
@@ -562,21 +562,21 @@ alter publication supabase_realtime add table entries;`;
           <span className="text-[10px] font-black tracking-tight text-blue-600 mt-1">Solve</span>
         </button>
 
-        {/* Nav 4: Hub */}
+        {/* Nav 4: Social */}
         <button
-          onClick={() => setActiveTab("hub")}
+          onClick={() => setActiveTab("social")}
           className={`flex flex-col items-center space-y-1 transition-all flex-1 cursor-pointer ${
-            activeTab === "hub" ? "text-brand-primary scale-102 font-black" : "text-slate-400 hover:text-slate-600 font-semibold"
+            activeTab === "social" ? "text-brand-primary scale-102 font-black" : "text-slate-400 hover:text-slate-600 font-semibold"
           }`}
         >
           <div
             className={`p-1.5 rounded-full ${
-              activeTab === "hub" ? "bg-blue-100/60 text-brand-primary" : "text-slate-400"
+              activeTab === "social" ? "bg-blue-100/60 text-brand-primary" : "text-slate-400"
             }`}
           >
-            <Users className="h-5 w-5" />
+            <MessageSquare className="h-5 w-5" />
           </div>
-          <span className="text-[10px] tracking-tight">Hub</span>
+          <span className="text-[10px] tracking-tight">Social</span>
         </button>
 
         {/* Nav 5: Rank */}
