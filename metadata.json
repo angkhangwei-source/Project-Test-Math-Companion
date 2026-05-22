@@ -1,0 +1,10 @@
+{
+  "name": "MathCompanion",
+  "description": "An interactive, gamified math learning companion with AI tutoring, camera problem-scanning, step-by-step guidance, and real-time mastery analytics.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
