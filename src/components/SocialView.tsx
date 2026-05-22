@@ -16,7 +16,7 @@ export default function SocialView() {
   const topics: DiscussionTopic[] = [
     {
       id: "math-companion-general",
-      title: "General Math Chat (綜合體育 & 數學交流)",
+      title: "General Math Chat & Global Lounge",
       category: "General",
       desc: "Share your study tips, show off your high scores, or chat with fellow learners anyway you like!",
       url: "https://math-companion.app/social/general",
@@ -24,7 +24,7 @@ export default function SocialView() {
     },
     {
       id: "math-companion-algebra",
-      title: "Algebra Alliance (代數聯盟討論區)",
+      title: "Algebra Alliance Discussion Forum",
       category: "Algebra",
       desc: "Stuck with linear equations or quadratic proofs? Discuss algebraic formulas and tips here.",
       url: "https://math-companion.app/social/algebra",
@@ -32,7 +32,7 @@ export default function SocialView() {
     },
     {
       id: "math-companion-geometry",
-      title: "Geometry Guild (幾何證明與繪圖)",
+      title: "Geometry Guild & Drawing Proofs",
       category: "Geometry",
       desc: "Pythagorean theorem, circle properties, and area solvers. Join forces to draw flawless proofs.",
       url: "https://math-companion.app/social/geometry",
@@ -40,7 +40,7 @@ export default function SocialView() {
     },
     {
       id: "math-companion-calculus",
-      title: "Calculus Connoisseurs (微積分大師交流)",
+      title: "Calculus Connoisseurs Corner",
       category: "Calculus",
       desc: "Limits, derivatives, integrations, and advanced mathematical physics. Enter if you dare!",
       url: "https://math-companion.app/social/calculus",
@@ -133,13 +133,14 @@ export default function SocialView() {
 
         {/* Disqus Embedded Thread Frame Container wrapper with responsive styles */}
         <div className="disqus-container py-2 min-h-[400px]">
-          <DiscussionEmbed
+           <DiscussionEmbed
+            key={activeTopic.id}
             shortname="math-companion"
             config={{
               url: activeTopic.url,
               identifier: activeTopic.id,
               title: topicTitleFormat(activeTopic.title),
-              language: "zh_TW", // Traditional Chinese (Taiwan) as requested
+              language: "en", // English only as requested
             }}
           />
         </div>

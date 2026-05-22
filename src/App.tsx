@@ -388,7 +388,8 @@ export default function App() {
         voiceActive={voiceActive}
       />
 
-      {supabaseErrorMsg && (
+      {/* Supabase UI warning is hidden from active viewport as requested */}
+      {false && supabaseErrorMsg && (
         <div className="mx-4 mt-3 p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-900 space-y-3 shadow-xs">
           <div className="flex items-start space-x-2">
             <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
