@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Home, Map as MapIcon, Trophy, Dumbbell, Users, BarChart2, Flame, RefreshCw, X, Camera } from "lucide-react";
+import { Home, Map as MapIcon, Trophy, Dumbbell, Users, BarChart2, Flame, RefreshCw, X, Camera, Database, AlertTriangle, Check } from "lucide-react";
 import { UserData, Quest, RecentQuest, MissionLogItem, Challenge } from "./types";
 import Header from "./components/Header";
 import HomeView from "./components/HomeView";
@@ -10,6 +10,7 @@ import RankView from "./components/RankView";
 import CameraView from "./components/CameraView";
 import SolverView from "./components/SolverView";
 import QuestRevisionView from "./components/QuestRevisionView";
+import { supabase, mapEntryToMission, insertMissionToSupabase } from "./lib/supabase";
 
 export default function App() {
   // Navigation active tab: "home" | "map" | "arena" | "hub" | "rank"
@@ -89,10 +90,16 @@ export default function App() {
     },
   ]);
 
-  // Mission Log State mirroring Screen A list items exactly
+  // Mission Log State mirroring Screen A list items exactly, with Supabase live sync & localStorage fallback
   const [missions, setMissions] = useState<MissionLogItem[]>(() => {
-    const saved = localStorage.getItem("math_companion_missions");
-    if (saved) return JSON.parse(saved);
+    try {
+      const saved = localStorage.getItem("math_companion_missions");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn("Failed to load initial missions from localStorage:", e);
+    }
     return [
       {
         id: "m-1",
@@ -127,17 +134,94 @@ export default function App() {
     ];
   });
 
+  const [supabaseErrorMsg, setSupabaseErrorMsg] = useState<string | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+
   // Arena states
   const [loadingChallenge, setLoadingChallenge] = useState(false);
 
-  // Save to localStorage on stats update
+  const loadSupabaseData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("entries")
+        .select("*")
+        .order("id", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching entries from Supabase:", error.message);
+        setSupabaseErrorMsg(error.message);
+      } else {
+        setSupabaseErrorMsg(null);
+        if (data && data.length > 0) {
+          console.log(`Successfully fetched ${data.length} entries from Supabase.`);
+          setMissions(data.map(mapEntryToMission));
+        } else {
+          console.log("No entries in Supabase 'entries' table yet. Showing default missions.");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to connect to Supabase for initial load:", err);
+      setSupabaseErrorMsg(String(err));
+    }
+  };
+
+  // Load initial entries from Supabase + Subscribe to real-time updates
+  useEffect(() => {
+    loadSupabaseData();
+
+    // Setup real-time postgres changes channel listener
+    const entriesChannel = supabase
+      .channel("public-entries-feed")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "entries",
+        },
+        (payload) => {
+          console.log("Real-time postgres change event:", payload);
+          if (payload.eventType === "INSERT") {
+            const newMission = mapEntryToMission(payload.new);
+            setMissions((prev) => {
+              // Deduplicate inserts
+              if (prev.some((m) => m.id === newMission.id || (m.equation === newMission.equation && m.topic === newMission.topic))) {
+                return prev;
+              }
+              return [newMission, ...prev];
+            });
+          } else if (payload.eventType === "UPDATE") {
+            const updatedMission = mapEntryToMission(payload.new);
+            setMissions((prev) =>
+              prev.map((m) => (m.id === updatedMission.id ? updatedMission : m))
+            );
+          } else if (payload.eventType === "DELETE") {
+            const deletedId = String(payload.old?.id);
+            setMissions((prev) => prev.filter((m) => m.id !== deletedId));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(entriesChannel);
+    };
+  }, []);
+
+  // Save userData to localStorage on stats update
   useEffect(() => {
     localStorage.setItem("math_companion_user", JSON.stringify(userData));
   }, [userData]);
 
+  // Save missions to localStorage to guarantee robust offline/local fallback
   useEffect(() => {
-    localStorage.setItem("math_companion_missions", JSON.stringify(missions));
+    try {
+      localStorage.setItem("math_companion_missions", JSON.stringify(missions));
+    } catch (e) {
+      console.warn("Failed to write missions to localStorage:", e);
+    }
   }, [missions]);
+
 
   // Handler for Successful Step resolution
   const handleSolveSuccess = (xpAwarded: number, solvedEquation: string, solvedTopic: string) => {
@@ -201,6 +285,9 @@ export default function App() {
     };
 
     setMissions((prev) => [newMission, ...prev]);
+    
+    // Publishes the new entry to Supabase Postgres real-time study feed
+    insertMissionToSupabase(newMission);
 
     // Complete active trigonometry quest indicator locally
     if (solvedTopic === "Geometry") {
@@ -300,6 +387,98 @@ export default function App() {
         onVoiceToggle={handleVoiceToggle}
         voiceActive={voiceActive}
       />
+
+      {supabaseErrorMsg && (
+        <div className="mx-4 mt-3 p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-900 space-y-3 shadow-xs">
+          <div className="flex items-start space-x-2">
+            <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h4 className="font-extrabold text-sm tracking-tight text-rose-800">
+                Supabase Setup Error
+              </h4>
+              <p className="text-xs text-rose-700/95 leading-relaxed mt-1 font-medium font-mono whitespace-pre-wrap break-words">
+                {supabaseErrorMsg}
+              </p>
+            </div>
+            <button 
+              onClick={() => setSupabaseErrorMsg(null)}
+              className="p-1 rounded-md text-rose-400 hover:bg-rose-100 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="text-xs text-slate-700 space-y-2 pt-1 border-t border-rose-200/50">
+            <div className="flex items-center space-x-1 font-bold text-slate-850">
+              <Database className="h-3.5 w-3.5 text-blue-500" />
+              <span>Fix: Run this query in Supabase SQL Editor</span>
+            </div>
+
+            <div className="relative rounded bg-slate-900 text-slate-350 p-2.5 font-mono text-[9px] max-h-36 overflow-y-auto leading-relaxed select-text select-all">
+              <pre className="whitespace-pre-wrap break-all">
+{`CREATE TABLE public.entries (
+  id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  equation text NOT NULL,
+  title text DEFAULT 'Self Resolve',
+  topic text DEFAULT 'Algebra',
+  "xpAwarded" int8 DEFAULT 45,
+  "isCorrect" bool DEFAULT true,
+  "canRetry" bool DEFAULT false,
+  "timeString" text DEFAULT 'Just Now',
+  created_at timestamptz DEFAULT now()
+);
+
+-- Enable Realtime
+alter publication supabase_realtime add table entries;`}
+              </pre>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => {
+                  const sql = `CREATE TABLE public.entries (
+  id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  equation text NOT NULL,
+  title text DEFAULT 'Self Resolve',
+  topic text DEFAULT 'Algebra',
+  "xpAwarded" int8 DEFAULT 45,
+  "isCorrect" bool DEFAULT true,
+  "canRetry" bool DEFAULT false,
+  "timeString" text DEFAULT 'Just Now',
+  created_at timestamptz DEFAULT now()
+);
+
+-- Enable Realtime
+alter publication supabase_realtime add table entries;`;
+                  navigator.clipboard.writeText(sql);
+                  setCopiedSql(true);
+                  setTimeout(() => setCopiedSql(false), 2000);
+                }}
+                className="flex-1 py-1 px-2.5 rounded bg-blue-600 text-white font-bold hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center space-x-1"
+              >
+                {copiedSql ? (
+                  <>
+                    <Check className="h-3 w-3" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <span>Copy SQL Code</span>
+                )}
+              </button>
+
+              <button
+                onClick={() => {
+                  loadSupabaseData();
+                }}
+                className="flex-1 py-1 px-2.5 rounded bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 active:scale-95 transition-all flex items-center justify-center space-x-1"
+              >
+                <RefreshCw className="h-3 w-3 animate-spin duration-3000" />
+                <span>Retry Connection</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main scrolling content frame */}
       <main className="flex-1 px-4 overflow-y-auto">
